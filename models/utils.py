@@ -7,10 +7,10 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils import model_zoo
 
-########################################################################
-############### HELPERS FUNCTIONS FOR MODEL ARCHITECTURE ###############
-########################################################################
 
+# #######################################################################
+# ############## HELPERS FUNCTIONS FOR MODEL ARCHITECTURE ###############
+# #######################################################################
 
 # Parameters for the entire model (stem, all blocks, and head)
 GlobalParams = collections.namedtuple(
@@ -112,7 +112,8 @@ def drop_connect(inputs, p, training):
 
 
 def get_same_padding_conv2d(image_size=None):
-    """ Chooses static padding if you have specified an image size, and dynamic padding otherwise.
+    """ Chooses static padding if you have specified an image size,
+        and dynamic padding otherwise.
         Static padding is necessary for ONNX exporting of models. """
     if image_size is None:
         return Conv2dDynamicSamePadding
@@ -206,9 +207,9 @@ class Identity(nn.Module):
         return input
 
 
-########################################################################
-############## HELPERS FUNCTIONS FOR LOADING MODEL PARAMS ##############
-########################################################################
+# #######################################################################
+# ############# HELPERS FUNCTIONS FOR LOADING MODEL PARAMS ##############
+# #######################################################################
 
 
 def efficientnet_params(model_name):
@@ -228,7 +229,9 @@ def efficientnet_params(model_name):
 
 
 class BlockDecoder(object):
-    """ Block Decoder for readability, straight from the official TensorFlow repository """
+    """ Block Decoder for readability,
+        straight from the official TensorFlow repository
+    """
 
     @staticmethod
     def _decode_block_string(block_string):
@@ -351,20 +354,45 @@ def get_model_params(model_name, override_params):
     else:
         raise NotImplementedError("model name is not pre-defined: %s" % model_name)
     if override_params:
-        # ValueError will be raised here if override_params has fields not included in global_params.
+        # ValueError will be raised here
+        # if override_params has fields not included in global_params.
         global_params = global_params._replace(**override_params)
     return blocks_args, global_params
 
 
 url_map = {
-    "efficientnet-b0": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b0-355c32eb.pth",
-    "efficientnet-b1": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b1-f1951068.pth",
-    "efficientnet-b2": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b2-8bb594d6.pth",
-    "efficientnet-b3": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b3-5fb5a3c3.pth",
-    "efficientnet-b4": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b4-6ed6700e.pth",
-    "efficientnet-b5": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b5-b6417697.pth",
-    "efficientnet-b6": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b6-c76e70fd.pth",
-    "efficientnet-b7": "http://storage.googleapis.com/public-models/efficientnet/efficientnet-b7-dcc49843.pth",
+    "efficientnet-b0": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b0-355c32eb.pth"
+    ),
+    "efficientnet-b1": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b1-f1951068.pth"
+    ),
+    "efficientnet-b2": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b2-8bb594d6.pth"
+    ),
+    "efficientnet-b3": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b3-5fb5a3c3.pth"
+    ),
+    "efficientnet-b4": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b4-6ed6700e.pth"
+    ),
+    "efficientnet-b5": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b5-b6417697.pth"
+    ),
+    "efficientnet-b6": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b6-c76e70fd.pth"
+    ),
+    "efficientnet-b7": (
+        "http://storage.googleapis.com/public-models/efficientnet/"
+        "efficientnet-b7-dcc49843.pth"
+    ),
 }
 
 

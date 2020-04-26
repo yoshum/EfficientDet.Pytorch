@@ -4,13 +4,7 @@ import math
 from models.efficientnet import EfficientNet
 from models.bifpn import BIFPN
 from .retinahead import RetinaHead
-from models.module import (
-    RegressionModel,
-    ClassificationModel,
-    Anchors,
-    ClipBoxes,
-    BBoxTransform,
-)
+from models.module import Anchors, ClipBoxes, BBoxTransform
 from torchvision.ops import nms
 from .losses import FocalLoss
 

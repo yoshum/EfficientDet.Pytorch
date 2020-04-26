@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -143,8 +142,6 @@ class FocalLoss(nn.Module):
                 targets = targets.t()
 
                 targets = targets / torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
-
-                negative_indices = 1 + (~positive_indices)
 
                 regression_diff = torch.abs(targets - regression[positive_indices, :])
 
