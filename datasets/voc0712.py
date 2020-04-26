@@ -4,20 +4,37 @@ import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
+
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
     import xml.etree.ElementTree as ET
 
 VOC_CLASSES = (  # always index 0
-    'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
-    'sheep', 'sofa', 'train', 'tvmonitor')
+    "aeroplane",
+    "bicycle",
+    "bird",
+    "boat",
+    "bottle",
+    "bus",
+    "car",
+    "cat",
+    "chair",
+    "cow",
+    "diningtable",
+    "dog",
+    "horse",
+    "motorbike",
+    "person",
+    "pottedplant",
+    "sheep",
+    "sofa",
+    "train",
+    "tvmonitor",
+)
 
 # note: if you used our download scripts, this should be right
-VOC_ROOT = osp.join('/home/toandm2', "data/VOCdevkit/")
+VOC_ROOT = osp.join("/home/toandm2", "data/VOCdevkit/")
 
 
 class VOCAnnotationTransform(object):
@@ -34,7 +51,8 @@ class VOCAnnotationTransform(object):
 
     def __init__(self, class_to_ind=None, keep_difficult=False):
         self.class_to_ind = class_to_ind or dict(
-            zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+            zip(VOC_CLASSES, range(len(VOC_CLASSES)))
+        )
         self.keep_difficult = keep_difficult
 
     def __call__(self, target, width, height):
@@ -46,14 +64,14 @@ class VOCAnnotationTransform(object):
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
         res = []
-        for obj in target.iter('object'):
-            difficult = int(obj.find('difficult').text) == 1
+        for obj in target.iter("object"):
+            difficult = int(obj.find("difficult").text) == 1
             if not self.keep_difficult and difficult:
                 continue
-            name = obj.find('name').text.lower().strip()
-            bbox = obj.find('bndbox')
+            name = obj.find("name").text.lower().strip()
+            bbox = obj.find("bndbox")
 
-            pts = ['xmin', 'ymin', 'xmax', 'ymax']
+            pts = ["xmin", "ymin", "xmax", "ymax"]
             bndbox = []
             for i, pt in enumerate(pts):
                 cur_pt = float(bbox.find(pt).text) - 1
@@ -83,21 +101,25 @@ class VOCDetection(data.Dataset):
             (default: 'VOC2007')
     """
 
-    def __init__(self, root,
-                 image_sets=[('2007', 'trainval'), ('2012', 'trainval')],
-                 transform=None, target_transform=VOCAnnotationTransform(),
-                 dataset_name='VOC0712'):
+    def __init__(
+        self,
+        root,
+        image_sets=[("2007", "trainval"), ("2012", "trainval")],
+        transform=None,
+        target_transform=VOCAnnotationTransform(),
+        dataset_name="VOC0712",
+    ):
         self.root = root
         self.image_set = image_sets
         self.transform = transform
         self.target_transform = target_transform
         self.name = dataset_name
-        self._annopath = osp.join('%s', 'Annotations', '%s.xml')
-        self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
+        self._annopath = osp.join("%s", "Annotations", "%s.xml")
+        self._imgpath = osp.join("%s", "JPEGImages", "%s.jpg")
         self.ids = list()
         for (year, name) in image_sets:
-            rootpath = osp.join(self.root, 'VOC' + year)
-            for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
+            rootpath = osp.join(self.root, "VOC" + year)
+            for line in open(osp.join(rootpath, "ImageSets", "Main", name + ".txt")):
                 self.ids.append((rootpath, line.strip()))
 
     def __getitem__(self, index):
@@ -106,13 +128,13 @@ class VOCDetection(data.Dataset):
         target = ET.parse(self._annopath % img_id).getroot()
         img = cv2.imread(self._imgpath % img_id)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32)/255.
+        img = img.astype(np.float32) / 255.0
         height, width, channels = img.shape
 
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
         target = np.array(target)
-        sample = {'img': img, 'annot': target}
+        sample = {"img": img, "annot": target}
         if self.transform is not None:
             sample = self.transform(sample)
         return sample
@@ -121,12 +143,12 @@ class VOCDetection(data.Dataset):
         labels = target[:, 4]
 
         if self.transform is not None:
-            annotation = {'image': img, 'bboxes': bbox, 'category_id': labels}
+            annotation = {"image": img, "bboxes": bbox, "category_id": labels}
             augmentation = self.transform(**annotation)
-            img = augmentation['image']
-            bbox = augmentation['bboxes']
-            labels = augmentation['category_id']
-        return {'image': img, 'bboxes': bbox, 'category_id': labels}
+            img = augmentation["image"]
+            bbox = augmentation["bboxes"]
+            labels = augmentation["category_id"]
+        return {"image": img, "bboxes": bbox, "category_id": labels}
 
     def __len__(self):
         return len(self.ids)

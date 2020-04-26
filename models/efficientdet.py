@@ -4,40 +4,50 @@ import math
 from models.efficientnet import EfficientNet
 from models.bifpn import BIFPN
 from .retinahead import RetinaHead
-from models.module import RegressionModel, ClassificationModel, Anchors, ClipBoxes, BBoxTransform
+from models.module import (
+    RegressionModel,
+    ClassificationModel,
+    Anchors,
+    ClipBoxes,
+    BBoxTransform,
+)
 from torchvision.ops import nms
 from .losses import FocalLoss
+
 MODEL_MAP = {
-    'efficientdet-d0': 'efficientnet-b0',
-    'efficientdet-d1': 'efficientnet-b1',
-    'efficientdet-d2': 'efficientnet-b2',
-    'efficientdet-d3': 'efficientnet-b3',
-    'efficientdet-d4': 'efficientnet-b4',
-    'efficientdet-d5': 'efficientnet-b5',
-    'efficientdet-d6': 'efficientnet-b6',
-    'efficientdet-d7': 'efficientnet-b6',
+    "efficientdet-d0": "efficientnet-b0",
+    "efficientdet-d1": "efficientnet-b1",
+    "efficientdet-d2": "efficientnet-b2",
+    "efficientdet-d3": "efficientnet-b3",
+    "efficientdet-d4": "efficientnet-b4",
+    "efficientdet-d5": "efficientnet-b5",
+    "efficientdet-d6": "efficientnet-b6",
+    "efficientdet-d7": "efficientnet-b6",
 }
 
 
 class EfficientDet(nn.Module):
-    def __init__(self,
-                 num_classes,
-                 network='efficientdet-d0',
-                 D_bifpn=3,
-                 W_bifpn=88,
-                 D_class=3,
-                 is_training=True,
-                 threshold=0.01,
-                 iou_threshold=0.5):
+    def __init__(
+        self,
+        num_classes,
+        network="efficientdet-d0",
+        D_bifpn=3,
+        W_bifpn=88,
+        D_class=3,
+        is_training=True,
+        threshold=0.01,
+        iou_threshold=0.5,
+    ):
         super(EfficientDet, self).__init__()
         self.backbone = EfficientNet.from_pretrained(MODEL_MAP[network])
         self.is_training = is_training
-        self.neck = BIFPN(in_channels=self.backbone.get_list_features()[-5:],
-                          out_channels=W_bifpn,
-                          stack=D_bifpn,
-                          num_outs=5)
-        self.bbox_head = RetinaHead(num_classes=num_classes,
-                                    in_channels=W_bifpn)
+        self.neck = BIFPN(
+            in_channels=self.backbone.get_list_features()[-5:],
+            out_channels=W_bifpn,
+            stack=D_bifpn,
+            num_outs=5,
+        )
+        self.bbox_head = RetinaHead(num_classes=num_classes, in_channels=W_bifpn)
 
         self.anchors = Anchors()
         self.regressBoxes = BBoxTransform()
@@ -47,7 +57,7 @@ class EfficientDet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
@@ -73,20 +83,22 @@ class EfficientDet(nn.Module):
             scores_over_thresh = (scores > self.threshold)[0, :, 0]
 
             if scores_over_thresh.sum() == 0:
-                print('No boxes to NMS')
+                print("No boxes to NMS")
                 # no boxes to NMS, just return
                 return [torch.zeros(0), torch.zeros(0), torch.zeros(0, 4)]
             classification = classification[:, scores_over_thresh, :]
             transformed_anchors = transformed_anchors[:, scores_over_thresh, :]
             scores = scores[:, scores_over_thresh, :]
             anchors_nms_idx = nms(
-                transformed_anchors[0, :, :], scores[0, :, 0], iou_threshold=self.iou_threshold)
-            nms_scores, nms_class = classification[0, anchors_nms_idx, :].max(
-                dim=1)
+                transformed_anchors[0, :, :],
+                scores[0, :, 0],
+                iou_threshold=self.iou_threshold,
+            )
+            nms_scores, nms_class = classification[0, anchors_nms_idx, :].max(dim=1)
             return [nms_scores, nms_class, transformed_anchors[0, anchors_nms_idx, :]]
 
     def freeze_bn(self):
-        '''Freeze BatchNorm layers.'''
+        """Freeze BatchNorm layers."""
         for layer in self.modules():
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()

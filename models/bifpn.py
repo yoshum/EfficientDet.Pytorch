@@ -7,20 +7,22 @@ import torch
 
 
 class BIFPN(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 num_outs,
-                 start_level=0,
-                 end_level=-1,
-                 stack=1,
-                 add_extra_convs=False,
-                 extra_convs_on_inputs=True,
-                 relu_before_extra_convs=False,
-                 no_norm_on_lateral=False,
-                 conv_cfg=None,
-                 norm_cfg=None,
-                 activation=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        num_outs,
+        start_level=0,
+        end_level=-1,
+        stack=1,
+        add_extra_convs=False,
+        extra_convs_on_inputs=True,
+        relu_before_extra_convs=False,
+        no_norm_on_lateral=False,
+        conv_cfg=None,
+        norm_cfg=None,
+        activation=None,
+    ):
         super(BIFPN, self).__init__()
         assert isinstance(in_channels, list)
         self.in_channels = in_channels
@@ -57,15 +59,20 @@ class BIFPN(nn.Module):
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
                 activation=self.activation,
-                inplace=False)
+                inplace=False,
+            )
             self.lateral_convs.append(l_conv)
 
         for ii in range(stack):
-            self.stack_bifpn_convs.append(BiFPNModule(channels=out_channels,
-                                                      levels=self.backbone_end_level-self.start_level,
-                                                      conv_cfg=conv_cfg,
-                                                      norm_cfg=norm_cfg,
-                                                      activation=activation))
+            self.stack_bifpn_convs.append(
+                BiFPNModule(
+                    channels=out_channels,
+                    levels=self.backbone_end_level - self.start_level,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    activation=activation,
+                )
+            )
         # add extra conv layers (e.g., RetinaNet)
         extra_levels = num_outs - self.backbone_end_level + self.start_level
         if add_extra_convs and extra_levels >= 1:
@@ -83,7 +90,8 @@ class BIFPN(nn.Module):
                     conv_cfg=conv_cfg,
                     norm_cfg=norm_cfg,
                     activation=self.activation,
-                    inplace=False)
+                    inplace=False,
+                )
                 self.fpn_convs.append(extra_fpn_conv)
         self.init_weights()
 
@@ -91,7 +99,7 @@ class BIFPN(nn.Module):
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                xavier_init(m, distribution='uniform')
+                xavier_init(m, distribution="uniform")
 
     def forward(self, inputs):
         assert len(inputs) == len(self.in_channels)
@@ -130,14 +138,16 @@ class BIFPN(nn.Module):
 
 
 class BiFPNModule(nn.Module):
-    def __init__(self,
-                 channels,
-                 levels,
-                 init=0.5,
-                 conv_cfg=None,
-                 norm_cfg=None,
-                 activation=None,
-                 eps=0.0001):
+    def __init__(
+        self,
+        channels,
+        levels,
+        init=0.5,
+        conv_cfg=None,
+        norm_cfg=None,
+        activation=None,
+        eps=0.0001,
+    ):
         super(BiFPNModule, self).__init__()
         self.activation = activation
         self.eps = eps
@@ -149,7 +159,7 @@ class BiFPNModule(nn.Module):
         self.w2 = nn.Parameter(torch.Tensor(3, levels - 2).fill_(init))
         self.relu2 = nn.ReLU()
         for jj in range(2):
-            for i in range(self.levels-1):  # 1,2,3
+            for i in range(self.levels - 1):  # 1,2,3
                 fpn_conv = nn.Sequential(
                     ConvModule(
                         channels,
@@ -159,7 +169,8 @@ class BiFPNModule(nn.Module):
                         conv_cfg=conv_cfg,
                         norm_cfg=norm_cfg,
                         activation=self.activation,
-                        inplace=False)
+                        inplace=False,
+                    )
                 )
                 self.bifpn_convs.append(fpn_conv)
 
@@ -167,7 +178,7 @@ class BiFPNModule(nn.Module):
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                xavier_init(m, distribution='uniform')
+                xavier_init(m, distribution="uniform")
 
     def forward(self, inputs):
         assert len(inputs) == self.levels
@@ -186,18 +197,26 @@ class BiFPNModule(nn.Module):
             inputs_clone.append(in_tensor.clone())
 
         for i in range(levels - 1, 0, -1):
-            pathtd[i - 1] = (w1[0, i-1]*pathtd[i - 1] + w1[1, i-1]*F.interpolate(
-                pathtd[i], scale_factor=2, mode='nearest'))/(w1[0, i-1] + w1[1, i-1] + self.eps)
+            pathtd[i - 1] = (
+                w1[0, i - 1] * pathtd[i - 1]
+                + w1[1, i - 1]
+                * F.interpolate(pathtd[i], scale_factor=2, mode="nearest")
+            ) / (w1[0, i - 1] + w1[1, i - 1] + self.eps)
             pathtd[i - 1] = self.bifpn_convs[idx_bifpn](pathtd[i - 1])
             idx_bifpn = idx_bifpn + 1
         # build down-top
         for i in range(0, levels - 2, 1):
-            pathtd[i + 1] = (w2[0, i] * pathtd[i + 1] + w2[1, i] * F.max_pool2d(pathtd[i], kernel_size=2) +
-                             w2[2, i] * inputs_clone[i + 1])/(w2[0, i] + w2[1, i] + w2[2, i] + self.eps)
+            pathtd[i + 1] = (
+                w2[0, i] * pathtd[i + 1]
+                + w2[1, i] * F.max_pool2d(pathtd[i], kernel_size=2)
+                + w2[2, i] * inputs_clone[i + 1]
+            ) / (w2[0, i] + w2[1, i] + w2[2, i] + self.eps)
             pathtd[i + 1] = self.bifpn_convs[idx_bifpn](pathtd[i + 1])
             idx_bifpn = idx_bifpn + 1
 
-        pathtd[levels - 1] = (w1[0, levels-1] * pathtd[levels - 1] + w1[1, levels-1] * F.max_pool2d(
-            pathtd[levels - 2], kernel_size=2))/(w1[0, levels-1] + w1[1, levels-1] + self.eps)
+        pathtd[levels - 1] = (
+            w1[0, levels - 1] * pathtd[levels - 1]
+            + w1[1, levels - 1] * F.max_pool2d(pathtd[levels - 2], kernel_size=2)
+        ) / (w1[0, levels - 1] + w1[1, levels - 1] + self.eps)
         pathtd[levels - 1] = self.bifpn_convs[idx_bifpn](pathtd[levels - 1])
         return pathtd
