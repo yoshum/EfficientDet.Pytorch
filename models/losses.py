@@ -30,7 +30,7 @@ def calc_iou(a, b):
     return IoU
 
 
-class FocalLoss(nn.Module):
+class _FocalLoss(nn.Module):
     # def __init__(self):
 
     def forward(self, classifications, regressions, anchors, annotations):
@@ -158,3 +158,64 @@ class FocalLoss(nn.Module):
             torch.stack(classification_losses).mean(dim=0, keepdim=True),
             torch.stack(regression_losses).mean(dim=0, keepdim=True),
         )
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=0.25, gamma=2.0):
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, classification, targets):
+        alpha = self.alpha
+        gamma = self.gamma
+
+        num_positive_anchors = torch.eq(targets, 1).sum(dim=1)
+
+        alpha_factor = torch.ones(targets.shape).cuda() * alpha
+        alpha_factor = torch.where(
+            torch.eq(targets, 1.0), alpha_factor, 1.0 - alpha_factor
+        )
+
+        focal_weight = torch.where(
+            torch.eq(targets, 1.0), 1.0 - classification, classification
+        )
+        focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+
+        bce = -(
+            targets * torch.log(classification)
+            + (1.0 - targets) * torch.log(1.0 - classification)
+        )
+
+        # cls_loss = focal_weight * torch.pow(bce, gamma)
+        cls_loss = focal_weight * bce
+        cls_loss = torch.where(
+            torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda()
+        )
+
+        return cls_loss.sum(dim=1) / torch.clamp(num_positive_anchors.float(), min=1.0)
+
+
+class MultiboxLoss(nn.Module):
+    def __init__(self):
+        self.cls_loss = FocalLoss()
+
+        self.positive_threshold = 0.5
+        self.negative_threshold = 0.4
+
+    def forward(self, outs, targets):
+        classification = torch.cat([out for out in outs[0]], dim=1)
+        regression = torch.cat([out for out in outs[1]], dim=1)
+        cls_target, reg_target = targets
+
+        cls_loss = self.cls_loss(classification, cls_target)
+
+        positive_mask = torch.eq(cls_target, 1)
+        reg_absolute_error = torch.abs(regression - reg_target)
+        reg_loss = torch.where(
+            torch.le(reg_absolute_error, 1.0 / 9.0),
+            0.5 * 9.0 * torch.pow(reg_absolute_error, 2),
+            reg_absolute_error - 0.5 / 9.0,
+        )
+        reg_loss *= positive_mask
+        reg_loss = reg_loss.sum(dim=1) / positive_mask.sum(dim=1)
+        return cls_loss.mean(dim=0, keepdim=True), reg_loss.mean(dim=0, keepdim=True)

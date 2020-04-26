@@ -6,7 +6,10 @@ from models.bifpn import BIFPN
 from .retinahead import RetinaHead
 from models.module import Anchors, ClipBoxes, BBoxTransform
 from torchvision.ops import nms
-from .losses import FocalLoss
+from .losses import _FocalLoss, MultiboxLoss
+from .detector_model import DetectorModel
+from .anchor_coder import AnchorCoder
+from ..utils.config_eff import EFFICIENTDET
 
 MODEL_MAP = {
     "efficientdet-d0": "efficientnet-b0",
@@ -18,6 +21,23 @@ MODEL_MAP = {
     "efficientdet-d6": "efficientnet-b6",
     "efficientdet-d7": "efficientnet-b6",
 }
+
+
+def build_efficientdet(name, num_classes):
+    params = EFFICIENTDET[name]
+    backbone = EfficientNet.from_pretrained(MODEL_MAP[name])
+    DetectorModel(
+        backbone,
+        BIFPN(
+            in_channels=backbone.get_list_features()[-5:],
+            out_channels=params["W_bifpn"],
+            stack=params["D_bifpn"],
+            num_outs=5,
+        ),
+        RetinaHead(num_classes=num_classes, in_channels=params["W_bifpn"]),
+        AnchorCoder(params["input_size"], num_classes),
+        MultiboxLoss(),
+    )
 
 
 class EfficientDet(nn.Module):
@@ -56,7 +76,7 @@ class EfficientDet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
         self.freeze_bn()
-        self.criterion = FocalLoss()
+        self.criterion = _FocalLoss()
 
     def forward(self, inputs):
         if self.is_training:
